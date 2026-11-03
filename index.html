@@ -1,0 +1,734 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const ChunarCafeApp());
+}
+
+class ChunarCafeApp extends StatelessWidget {
+  const ChunarCafeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Chunar Cafe',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFB94720),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFFF9F3),
+      ),
+      home: const MenuScreen(),
+    );
+  }
+}
+
+class Food {
+  final String name;
+  final String category;
+  final int? halfPrice;
+  final int? fullPrice;
+  final int? price;
+  final bool coldCoffeeAddon;
+
+  const Food({
+    required this.name,
+    required this.category,
+    this.halfPrice,
+    this.fullPrice,
+    this.price,
+    this.coldCoffeeAddon = false,
+  });
+
+  bool get hasSize => halfPrice != null && fullPrice != null;
+}
+
+class CartItem {
+  final Food food;
+  final String size;
+  final bool addIceCream;
+  int quantity;
+
+  CartItem({
+    required this.food,
+    this.size = '',
+    this.addIceCream = false,
+    this.quantity = 1,
+  });
+
+  int get unitPrice {
+    final base = food.hasSize
+        ? (size == 'Half' ? food.halfPrice! : food.fullPrice!)
+        : food.price!;
+
+    return base + (addIceCream ? 20 : 0);
+  }
+
+  String get displayName {
+    final sizeText = size.isEmpty ? '' : ' ($size)';
+    final addonText = addIceCream ? ' + Ice Cream' : '';
+    return '${food.name}$sizeText$addonText';
+  }
+}
+
+const List<Food> menu = [
+  // RICE
+  Food(
+    name: 'Egg Fried Rice',
+    category: 'Rice',
+    halfPrice: 60,
+    fullPrice: 120,
+  ),
+  Food(
+    name: 'Paneer Fried Rice',
+    category: 'Rice',
+    halfPrice: 70,
+    fullPrice: 130,
+  ),
+  Food(
+    name: 'Veg Fried Rice',
+    category: 'Rice',
+    halfPrice: 50,
+    fullPrice: 100,
+  ),
+  Food(
+    name: 'Rice Noodles Mix',
+    category: 'Rice',
+    halfPrice: 70,
+    fullPrice: 140,
+  ),
+  Food(
+    name: 'Sezwan Fried Rice',
+    category: 'Rice',
+    halfPrice: 60,
+    fullPrice: 120,
+  ),
+  Food(
+    name: 'Manchurian Rice',
+    category: 'Rice',
+    halfPrice: 70,
+    fullPrice: 140,
+  ),
+
+  // DRINKS
+  Food(
+    name: 'Cold Coffee',
+    category: 'Drinks',
+    price: 60,
+    coldCoffeeAddon: true,
+  ),
+  Food(name: 'Mojito', category: 'Drinks', price: 70),
+  Food(name: 'Hot Coffee', category: 'Drinks', price: 30),
+  Food(name: 'Cold Drink', category: 'Drinks', price: 0),
+
+  // NOODLES
+  Food(
+    name: 'Veg Hakka Noodles',
+    category: 'Noodles',
+    halfPrice: 70,
+    fullPrice: 130,
+  ),
+  Food(
+    name: 'Veg Sezwan Noodles',
+    category: 'Noodles',
+    halfPrice: 70,
+    fullPrice: 140,
+  ),
+  Food(
+    name: 'Veg Classic Noodles',
+    category: 'Noodles',
+    halfPrice: 60,
+    fullPrice: 110,
+  ),
+  Food(
+    name: 'Paneer Noodles',
+    category: 'Noodles',
+    halfPrice: 80,
+    fullPrice: 150,
+  ),
+
+  // CHINESE
+  Food(name: 'Paneer Chilly', category: 'Chinese', price: 120),
+  Food(name: 'French Fries Salted', category: 'Chinese', price: 70),
+  Food(name: 'Peri Peri French Fries', category: 'Chinese', price: 80),
+
+  // MOMOS
+  Food(name: 'Veg Momos Steam', category: 'Momos', price: 40),
+  Food(name: 'Veg Momos Fry', category: 'Momos', price: 50),
+  Food(name: 'Paneer Momos', category: 'Momos', price: 60),
+];
+
+class MenuScreen extends StatefulWidget {
+  const MenuScreen({super.key});
+
+  @override
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  final List<CartItem> cart = [];
+
+  String selectedCategory = 'All';
+
+  final categories = const [
+    'All',
+    'Rice',
+    'Drinks',
+    'Noodles',
+    'Chinese',
+    'Momos',
+  ];
+
+  int get cartCount =>
+      cart.fold(0, (sum, item) => sum + item.quantity);
+
+  int get total =>
+      cart.fold(0, (sum, item) => sum + item.unitPrice * item.quantity);
+
+  void addFood(Food food) {
+    if (food.name == 'Cold Drink') {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cold Drink'),
+          content: const Text(
+            'Cold Drink MRP par available hai. '
+            'Price confirm karne ke liye cafe ko call karein.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (food.hasSize || food.coldCoffeeAddon) {
+      showFoodOptions(food);
+    } else {
+      addToCart(food);
+    }
+  }
+
+  void addToCart(
+    Food food, {
+    String size = '',
+    bool iceCream = false,
+  }) {
+    final existing = cart.where(
+      (e) =>
+          e.food.name == food.name &&
+          e.size == size &&
+          e.addIceCream == iceCream,
+    );
+
+    setState(() {
+      if (existing.isNotEmpty) {
+        existing.first.quantity++;
+      } else {
+        cart.add(
+          CartItem(
+            food: food,
+            size: size,
+            addIceCream: iceCream,
+          ),
+        );
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${food.name} added to cart'),
+        duration: const Duration(milliseconds: 900),
+      ),
+    );
+  }
+
+  void showFoodOptions(Food food) {
+    String size = 'Half';
+    bool iceCream = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  food.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+
+                if (food.hasSize) ...[
+                  const Text('Choose quantity'),
+
+                  RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Half - ₹${food.halfPrice}'),
+                    value: 'Half',
+                    groupValue: size,
+                    onChanged: (v) {
+                      setSheetState(() => size = v!);
+                    },
+                  ),
+
+                  RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Full - ₹${food.fullPrice}'),
+                    value: 'Full',
+                    groupValue: size,
+                    onChanged: (v) {
+                      setSheetState(() => size = v!);
+                    },
+                  ),
+                ],
+
+                if (food.coldCoffeeAddon)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Add ice cream (+₹20)'),
+                    value: iceCream,
+                    onChanged: (v) {
+                      setSheetState(() => iceCream = v ?? false);
+                    },
+                  ),
+
+                const SizedBox(height: 8),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      addToCart(
+                        food,
+                        size: food.hasSize ? size : '',
+                        iceCream: iceCream,
+                      );
+                    },
+                    child: const Text('Add to cart'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void openCart() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CartScreen(
+          cart: cart,
+          onChanged: () => setState(() {}),
+          onCheckout: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CheckoutScreen(
+                  cart: cart,
+                  total: total,
+                ),
+              ),
+            ).then((orderPlaced) {
+              if (orderPlaced == true && mounted) {
+                setState(() => cart.clear());
+              }
+            });
+          },
+        ),
+      ),
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleFoods = menu.where((food) {
+      return selectedCategory == 'All' ||
+          food.category == selectedCategory;
+    }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Chunar Cafe',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Contact cafe',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Contact Chunar Cafe'),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('📍 Kailhat Market'),
+                      SizedBox(height: 8),
+                      Text('📞 9326742825'),
+                      Text('📞 7355294162'),
+                      SizedBox(height: 8),
+                      Text(
+                        'Delivery area: Kailhat and nearby locations.',
+                      ),
+                      Text(
+                        'Delivery charges phone par confirm honge.',
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            icon: const Icon(Icons.call),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Badge(
+                label: Text('$cartCount'),
+                isLabelVisible: cartCount > 0,
+                child: IconButton(
+                  onPressed: openCart,
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFB94720),
+                  Color(0xFFE27A35),
+                ],
+              ),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Good food, great mood!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'Fresh food from Chunar Cafe',
+                  style: TextStyle(color: Colors.white),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '📍 Kailhat Market  •  Home delivery available',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(
+            height: 46,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final category = categories[i];
+
+                return ChoiceChip(
+                  label: Text(category),
+                  selected: selectedCategory == category,
+                  onSelected: (_) {
+                    setState(() => selectedCategory = category);
+                  },
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 90),
+              itemCount: visibleFoods.length,
+              itemBuilder: (_, index) {
+                final food = visibleFoods[index];
+
+                final priceText = food.hasSize
+                    ? 'Half ₹${food.halfPrice}  •  Full ₹${food.fullPrice}'
+                    : food.name == 'Cold Drink'
+                        ? 'MRP'
+                        : '₹${food.price}';
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFFFFE3CF),
+                      child: Icon(
+                        iconFor(food.category),
+                        color: const Color(0xFFB94720),
+                      ),
+                    ),
+                    title: Text(
+                      food.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '$priceText'
+                      '${food.coldCoffeeAddon ? '  •  Ice cream +₹20' : ''}',
+                    ),
+                    trailing: FilledButton.tonal(
+                      onPressed: () => addFood(food),
+                      child: const Text('Add'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+          child: FilledButton.icon(
+            onPressed: openCart,
+            icon: const Icon(Icons.shopping_bag_outlined),
+            label: Text(
+              'View Cart  •  $cartCount items  •  ₹$total',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData iconFor(String category) {
+    switch (category) {
+      case 'Rice':
+        return Icons.rice_bowl;
+      case 'Drinks':
+        return Icons.local_cafe;
+      case 'Noodles':
+        return Icons.ramen_dining;
+      case 'Chinese':
+        return Icons.fastfood;
+      default:
+        return Icons.lunch_dining;
+    }
+  }
+}
+
+class CartScreen extends StatefulWidget {
+  final List<CartItem> cart;
+  final VoidCallback onChanged;
+  final VoidCallback onCheckout;
+
+  const CartScreen({
+    super.key,
+    required this.cart,
+    required this.onChanged,
+    required this.onCheckout,
+  });
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  int get total => widget.cart.fold(
+        0,
+        (sum, item) => sum + item.unitPrice * item.quantity,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Your Cart')),
+      body: widget.cart.isEmpty
+          ? const Center(
+              child: Text('Your cart is empty. Add something tasty!'),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                ...widget.cart.map(
+                  (item) => Card(
+                    child: ListTile(
+                      title: Text(item.displayName),
+                      subtitle: Text('₹${item.unitPrice} each'),
+                      leading: IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: () {
+                          setState(() {
+                            item.quantity--;
+
+                            if (item.quantity <= 0) {
+                              widget.cart.remove(item);
+                            }
+                          });
+
+                          widget.onChanged();
+                        },
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${item.quantity}'),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            onPressed: () {
+                              setState(() => item.quantity++);
+                              widget.onChanged();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                const Text(
+                  'Delivery charges will be confirmed by phone.',
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  'Subtotal: ₹$total',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+
+                const SizedBox(height: 16),
+
+                FilledButton(
+                  onPressed:
+                      widget.cart.isEmpty ? null : widget.onCheckout,
+                  child: const Text('Proceed to checkout'),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class CheckoutScreen extends StatefulWidget {
+  final List<CartItem> cart;
+  final int total;
+
+  const CheckoutScreen({
+    super.key,
+    required this.cart,
+    required this.total,
+  });
+
+  @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends State<CheckoutScreen> {
+  final formKey = GlobalKey<FormState>();
+
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final addressController = TextEditingController();
+
+  String paymentMethod = 'Cash on Delivery';
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    addressController.dispose();
+    super.dispose();
+  }
+
+  void reviewOrder() {
+    if (!formKey.currentState!.validate()) return;
+
+    final items = widget.cart
+        .map((e) => '${e.displayName} x${e.quantity}')
+        .join('\n');
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Order details ready'),
+        content: SingleChildScrollView(
+          child: Text(
+            'Name: ${nameController.text}\n'
+            'Phone: ${phoneController.text}\n'
+            'Address: ${addressController.text}\n\n'
+            'Items:\n$items\n\n'
+            'Subtotal: ₹${widget.total}\n'
+            'Payment: $paymentMethod\n\n'
+            'NOTE: This is a demo only. Order abhi cafe ko send nahi hua hai. Live order system aur online payment gateway connect karna baaki hai.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Checkout')),
+      body: Form(
+        key: formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          chil
